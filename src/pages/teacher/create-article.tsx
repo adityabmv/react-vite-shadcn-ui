@@ -6,12 +6,9 @@ import YooptaEditor, { createYooptaEditor, YooptaContentValue, YooptaOnChangeOpt
 // Import Yoopta Plugins
 import Paragraph from '@yoopta/paragraph';
 import Blockquote from '@yoopta/blockquote';
-import Accordion from '@yoopta/accordion';
 import Image from '@yoopta/image';
-import Video from '@yoopta/video';
 import Link from '@yoopta/link';
 import { NumberedList, BulletedList, TodoList } from '@yoopta/lists';
-import Table from '@yoopta/table';
 import Code from '@yoopta/code';
 import { HeadingOne, HeadingTwo, HeadingThree } from '@yoopta/headings';
 import Divider from '@yoopta/divider';
@@ -30,6 +27,8 @@ import { markdown, html } from '@yoopta/exports';
 // Import ShadCN UI Components
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+
+
 
 // ✅ MARKS for Rich Text
 const MARKS = [Bold, Italic, CodeMark, Underline, Strike, Highlight];
@@ -66,11 +65,20 @@ const plugins = [
     Code,
 ];
 
+const getEditorWidth = () => {
+    const screenWidth = window.innerWidth;
+    
+    if (screenWidth < 640) return "95vw"; // Mobile (95% of viewport width)
+    if (screenWidth < 1024) return "80vw"; // Tablets/iPads (80% of viewport width)
+    return "60vw"; // Laptops & Desktops (60% of viewport width)
+};
+
 const Editor = () => {
     // ✅ Initialize Yoopta Editor
     const [bIsReadOnly, setBIsReadOnly] = useState(false);
     const editor = useMemo(() => createYooptaEditor(), []);
     const [value, setValue] = useState<YooptaContentValue>();
+    const [editorWidth, setEditorWidth] = useState(getEditorWidth());
 
   // ✅ Load content from localStorage when the component mounts
   useEffect(() => {
@@ -80,6 +88,16 @@ const Editor = () => {
       editor.setEditorValue(deserializedValue);
     }
   }, []);
+
+      // ✅ Update width on window resize
+      useEffect(() => {
+        const handleResize = () => {
+            setEditorWidth(getEditorWidth());
+        };
+        
+        window.addEventListener("resize", handleResize);
+        return () => window.removeEventListener("resize", handleResize);
+    }, []);
 
     // ✅ HTML Serialization
     const serializeHTML = () => {
@@ -112,34 +130,42 @@ const Editor = () => {
     };
 
     return (
-        <Card className="p-6 shadow-md">
-            <h2 className="text-2xl font-bold mb-4">Markdown Editor</h2>
+        <div>
+                <h2 className="text-2xl font-bold mb-4 text-center">Markdown Editor</h2>
+    
+                {/* Button Section - Always Centered */}
+                <div className="mt-4 flex justify-center gap-4">
+                    <Button onClick={deserializeHTML} variant="outline">
+                        Import HTML
+                    </Button>
+                    <Button onClick={serializeHTML}>
+                        Export HTML
+                    </Button>
+                    <Button onClick={toggleReadOnly}>
+                        Toggle Read Only
+                    </Button>
+                </div>
+    
+                {/* Editor Section - Takes Full Width but Stays Centered */}
+                <div className="mt-4 flex justify-center">
+                <YooptaEditor 
+                    width={editorWidth}
+                    key={bIsReadOnly.toString()}
+                    value={value}
+                    editor={editor}
+                    plugins={plugins}
+                    marks={MARKS}
+                    readOnly={bIsReadOnly}
+                    autoFocus={true}
+                    tools={TOOLS}
+                    onChange={onEditorChange}
+                />
+                </div>
 
-            <div className="mt-4 flex gap-4">
-                <Button onClick={deserializeHTML} variant="outline">
-                    Import HTML
-                </Button>
-                <Button onClick={serializeHTML}>
-                    Export HTML
-                </Button>
-                <Button onClick={toggleReadOnly}>
-                    Toggle Read Only
-                </Button>
-            </div>
-
-            <YooptaEditor
-                key={bIsReadOnly.toString()}
-                value={value}
-                editor={editor}
-                plugins={plugins}
-                marks={MARKS}
-                readOnly={bIsReadOnly}
-                autoFocus={true}
-                tools={TOOLS}
-                onChange={onEditorChange}
-            />
-        </Card>
+        </div>
     );
+    
+    
 }
 
 
