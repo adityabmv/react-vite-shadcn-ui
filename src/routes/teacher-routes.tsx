@@ -3,6 +3,7 @@ import TeacherLayout from "@/layouts/teacher-layout";
 import Dashboard from "@/pages/teacher/dashboard";
 import CreateCourse from "@/pages/teacher/create-course";
 import Editor from "@/pages/teacher/create-article";
+import FaceDetectors from "@/pages/testing-proctoring/face-detectors";
 
 const teacherRoutes: RouteObject = {
   path: "/teacher",
@@ -24,6 +25,10 @@ const teacherRoutes: RouteObject = {
       index: true,
       element: <Dashboard />, // Default to Dashboard
     },
+    {
+      path: "testing",
+      element: <FaceDetectors />,
+    }
   ],
 };
 
