@@ -1,48 +1,29 @@
 import React, { useEffect, useRef, useState } from "react";
-import {
-  FaceDetector,
-  FilesetResolver,
-  Detection
-} from "@mediapipe/tasks-vision";
 
+const MAX_IMAGES = 5; // Limit the number of stored images
 
 const FaceDetectors: React.FC = () => {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const [faceDetector, setFaceDetector] = useState<FaceDetector | null>(null);
-  const [runningMode, setRunningMode] = useState<string>("IMAGE");
   const videoRef = useRef<HTMLVideoElement | null>(null);
-  const [imageSrcs, setImageSrcs] = useState<string[]>([]);
-  const [imgSrc, setImgSrc] = useState<string | null>(null);
+  const [imageSrcs, setImageSrcs] = useState<string[]>([]); // Store Blob URLs
+  const [imageBitmaps, setImageBitmaps] = useState<ImageBitmap[]>([]); // Store ImageBitmap for ML
 
   useEffect(() => {
-    const initializeFaceDetector = async () => {
-      const vision = await FilesetResolver.forVisionTasks(
-        "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
-      );
-      const detector = await FaceDetector.createFromOptions(vision, {
-        baseOptions: {
-          modelAssetPath:
-            "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite",
-          delegate: "GPU"
-        },
-        runningMode: "IMAGE"
-      });
-      setFaceDetector(detector);
-    };
-    initializeFaceDetector();
-        const enableWebcam = async () => {
+    const enableWebcam = async () => {
       if (!navigator.mediaDevices?.getUserMedia || !videoRef.current) return;
-      
+
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { frameRate: { max: 60 } } // Ensuring 1 FPS
+        video: { frameRate: { ideal: 3 } }, // Set frame rate to 3 FPS
       });
+
       videoRef.current.srcObject = stream;
     };
 
     enableWebcam();
 
-    const captureFrame = () => {
+    const captureFrame = async () => {
       if (!videoRef.current) return;
+      console.log("Hello");
+
       const video = videoRef.current;
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d");
@@ -51,48 +32,52 @@ const FaceDetectors: React.FC = () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-      setImgSrc(canvas.toDataURL("image/png"));
-      setImageSrcs((prev) => [canvas.toDataURL("image/png"), ...prev]);
+
+      // ✅ 1. Convert to ImageBitmap (for ML processing)
+      const imageBitmap = await createImageBitmap(canvas);
+      setImageBitmaps((prev) => [imageBitmap, ...prev.slice(0, MAX_IMAGES - 1)]);
+      
+      // ✅ 2. Convert to Blob (for displaying in <img>)
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const blobUrl = URL.createObjectURL(blob);
+        setImageSrcs((prev) => [blobUrl, ...prev.slice(0, MAX_IMAGES - 1)]); // Keep only MAX_IMAGES
+      }, "image/png");
+
+      // ✅ 3. Pass ImageBitmap to ML Model (Optional)
+      processMLAnalysis(imageBitmap);
     };
 
-    const intervalId = setInterval(captureFrame, 1000); // Capture at 1 FPS
+    const intervalId = setInterval(captureFrame, 1000 / 3); // Capture at 3 FPS
 
     return () => clearInterval(intervalId);
   }, []);
 
-  const handleImageClick = async (event: React.MouseEvent<HTMLImageElement>) => {
-    if (!faceDetector) return;
-
-    if (runningMode === "VIDEO") {
-      setRunningMode("IMAGE");
-      await faceDetector.setOptions({ runningMode: "IMAGE" });
-    }
-
-    const img = event.target as HTMLImageElement;
-    const detections = faceDetector.detect(img).detections;
-    console.log(detections);
-    if (detections.length >1){
-        console.log("More Than one face detected");
-    } else if (detections.length === 1){
-        console.log("Only one face detected");
-    } else {
-        console.log("No face detected");
-    }
+  // Placeholder ML analysis function
+  const processMLAnalysis = (image: ImageBitmap) => {
+    console.log("Processing image for ML analysis:", image);
+    // Your ML model can now use ImageBitmap efficiently
   };
 
   return (
-    <div className="container">
-      <h1>Face Detection</h1>
-      <h1>Webcam Capture</h1>
-      <video ref={videoRef} autoPlay playsInline className="webcam" />
-      <img src={imgSrc ?? ''} onClick={handleImageClick} alt="Captured Frame" />
+    <div className="container mx-auto p-4">
+      <h1 className="text-xl font-bold text-center mb-4">Webcam Capture</h1>
+      <div className="flex flex-col items-center space-y-4">
+        <video ref={videoRef} autoPlay playsInline className="rounded-lg shadow-lg border" />
+        <div className="grid grid-cols-3 gap-4">
+          {imageSrcs.map((src, index) => (
+            <img
+              key={index}
+              src={src} // ✅ Now it only stores Blob URLs
+              alt={`Captured Frame ${index}`}
+              className="w-32 h-32 object-cover rounded-lg shadow-md border"
+            />
+          ))}
+        </div>
+      </div>
     </div>
-    
   );
 };
-
-
-
 
 export default FaceDetectors;
 
